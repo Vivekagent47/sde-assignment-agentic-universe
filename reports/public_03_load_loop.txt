@@ -1,9 +1,9 @@
-ticks 267 · events 9,737,694 · ingest 44s (221,970 ev/s) · decide 13s · peak RSS 51 MB · credits left 400.0
-decide time per tick: mean 0.05s, max 0.14s
-  D0: 12s wall (sim + controller)
-  D1: 14s wall (sim + controller)
+ticks 267 · events 9,737,691 · ingest 45s (214,938 ev/s) · decide 14s · peak RSS 47 MB · credits left 400.0
+decide time per tick: mean 0.05s, max 0.24s
+  D0: 13s wall (sim + controller)
+  D1: 15s wall (sim + controller)
   D2: 14s wall (sim + controller)
   D3: 15s wall (sim + controller)
   D4: 15s wall (sim + controller)
   D5: 0s wall (sim + controller)
-decisions: approval_requested=41, approval_applied=39, decay_check=38, experiment_started=24, auto_applied=23, bootstrap=12, did_degraded=6, approval_rejected=1, apply_stale=1
+decisions: decay_check=44, approval_requested=39, approval_applied=38, experiment_started=24, auto_applied=23, guardrail_ok=20, bootstrap=12, did_degraded=4, approval_rejected=1

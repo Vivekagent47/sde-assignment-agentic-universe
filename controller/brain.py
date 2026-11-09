@@ -27,6 +27,7 @@ EXPLORE_ALT = 0.15        # max share per challenger arm; incumbent keeps >= 55%
 MIN_N_DROP, Z_DROP = 150, -2.0      # fast to stop harm
 MIN_N_WIN, Z_WIN, MIN_LIFT = 300, 2.8, 0.03   # slow to promote (z 2.8 ~ Bonferroni over arms x daily looks)
 MIN_N_COH, Z_COH = 150, 3.0         # cohort-only winner needs stronger evidence (4 cohorts x arms)
+GR_Z, GR_MIN_N = -2.0, 500          # guardrail breach: significant AND beyond the policy limit
 HOLDOUT = 0.3             # previous incumbent kept after promotion; sized so a 10% decay shows within ~2 days
 Z_DECAY = -1.65   # one-sided 5%: rolling back a champion that is truly *equal* to its holdout is harmless;
                   # harm needs a truly better champion, whose z sits well above 0, so a looser bar is cheap
@@ -67,7 +68,7 @@ class Brain:
             self._observe_edits(wf, s, cfg)
             self._track(wf, s, cfg, ver)
             self.st.put(f"wf:{wf}", s)
-            for step in (self._incident, self._caller_ids, self._decay, self._batch):
+            for step in (self._incident, self._caller_ids, self._guardrail, self._decay, self._batch):
                 if step(wf, s, cfg, ver):
                     cfg, ver = self._cfg(wf)
                     self._track(wf, s, cfg, ver)
@@ -359,6 +360,92 @@ class Brain:
                                       reserve=True, impact=0.8))
         return False
 
+    # ---------------------------------------------------------------- 3b. guardrail
+    def _guardrail(self, wf, s, cfg, ver) -> bool:
+        """Once a day: is engagement down beyond the guardrail limit, *within cohorts*, beyond normal day-to-day noise?
+
+        Expected = live connects per age band x that band's history rate (a schedule that shifts who connects
+        doesn't false-alarm). The standard error is the larger of binomial noise and the day-to-day spread of the
+        same ratio in history: daily lead pools differ, so binomial alone false-alarms (seen on KYC: pure-W1 days
+        range 0.54-0.64). On a breach we act only on what concurrent evidence implicates: challengers currently
+        behind the incumbent, and winners not beating their holdout. Otherwise alert only.
+        Engagement guardrails only: welcome/voice can't move pickup, and caller-ID drops have their own detector."""
+        g = self.wfs[wf]["objective"].get("guardrail") or {}
+        key = next(iter(g), None)
+        today = self.now // 1440
+        if not key or not key.startswith("engagement") or s.get("gr_checked") == today \
+                or self.gov.busy(wf) or not self.gov.can_request(wf, reserve=True):
+            return False
+        limit = float(g[key])
+        rows = self.st.q("SELECT day, seg/3, SUM(conn), SUM(eng) FROM en WHERE wf=? AND seg!=255 GROUP BY day, seg/3", wf)
+        hist_n, hist_x, by_day = {}, {}, {}
+        for d, a, n, x in rows:
+            by_day.setdefault(d, {})[a] = (n, x)
+            if d < 0:
+                hist_n[a] = hist_n.get(a, 0) + n
+                hist_x[a] = hist_x.get(a, 0) + x
+        p = {a: hist_x[a] / hist_n[a] for a in hist_n if hist_n[a]}
+
+        def ratio(days):
+            cells = [(a, n, x) for d in days for a, (n, x) in by_day.get(d, {}).items() if a in p]
+            e = sum(n * p[a] for a, n, x in cells)
+            return (sum(x for a, n, x in cells) / e if e else None), sum(n for a, n, x in cells), \
+                sum(n * p[a] * (1 - p[a]) for a, n, x in cells) / (e * e) if e else 0
+        r_live, n_live, var_bin = ratio([today - 2, today - 1])
+        if r_live is None or n_live < GR_MIN_N:
+            return False
+        s["gr_checked"] = today
+        daily = [ratio([d])[0] for d in sorted(by_day) if d < 0]
+        daily = [x for x in daily if x is not None]
+        sd_day = (sum((x - 1) ** 2 for x in daily) / max(len(daily) - 1, 1)) ** 0.5 if len(daily) > 2 else 0.0
+        se = max(math.sqrt(var_bin), sd_day / math.sqrt(2))
+        drop = r_live - 1
+        z = drop / max(se, 1e-9)
+        msg = (f"engagement within cohorts, last 2 full days {drop:+.1%} vs history "
+               f"(z={z:.1f} with day-to-day sd {sd_day:.1%}, limit -{limit:.0%})")
+        if not (drop < -limit and z < GR_Z):
+            self.st.decide(wf, "guardrail_ok", msg, {"ratio": r_live, "n": n_live, "sd_day": sd_day})
+            return False
+        self.st.decide(wf, "guardrail_breach", msg, {"ratio": r_live, "n": n_live, "sd_day": sd_day})
+        new = copy.deepcopy(cfg)
+        notes, expected = [f"guardrail breach: {msg}"], f"{wf}:guardrail:{self.now}"
+        for dim, e in s["exp"].items():
+            d = dist(cfg, "default", dim)
+            if e.get("status") != "exploring" or len(d) < 2:
+                continue
+            arms = self._arms(wf, dim, e["start_ver"], self._segs(CID))
+            ni, xi = arms.get(e["inc"], (0, 0))
+            behind = [o for o in d if o != e["inc"] and ni and arms.get(o, (0, 0))[0]
+                      and arms[o][1] / arms[o][0] < xi / ni]
+            if behind:
+                nd = {o: w for o, w in d.items() if o not in behind}
+                nd[e["inc"]] = nd.get(e["inc"], 0) + sum(d[o] for o in behind)
+                new["allocations"]["default"][dim] = nd
+                e["retired"] += behind
+                notes.append(f"stop {dim} arms behind {e['inc']}: {behind}")
+        for r in s["records"]:
+            if r["status"] != "active":
+                continue
+            a = self._arms(wf, r["dim"], r["start_ver"], self._segs(r["cids"]))
+            (nc, ec), (nh, eh) = a.get(r["champ"], (0, 0)), a.get(r["hold"], (0, 0))
+            if nc and nh and ec / nc <= eh / nh:
+                for c in r["cids"]:
+                    new["allocations"].setdefault(c, {})[r["dim"]] = {r["hold"]: 1}
+                r.update(status="rolling_back", pid_rb=expected)
+                notes.append(f"roll back {r['dim']}={r['champ']} in {r['cids']}: {ec}/{nc} not ahead of {r['hold']} {eh}/{nh}")
+        self.st.put(f"wf:{wf}", s)
+        if len(notes) == 1:
+            self.st.decide(wf, "guardrail_no_action", "no running experiment arm is behind its comparison — alert only")
+            return False
+        if not self._request(wf, "guardrail", cfg, ver, new, notes, reserve=True, impact=1.0,
+                             dry={"method": "within-cohort engagement vs history, noise from history day-to-day spread",
+                                  "drop": round(drop, 4), "z": round(z, 2), "limit": limit}):
+            for r in s["records"]:
+                if r["status"] == "rolling_back" and r.get("pid_rb") == expected:
+                    r["status"] = "active"
+            return False
+        return True
+
     # ---------------------------------------------------------------- 4. decay / rollback
     def _segs(self, cids):
         ages = [CID.index(c) for c in cids]
@@ -570,7 +657,10 @@ class Brain:
         read = {}
         winners = []
         for o in list(d):
-            if o == inc or o in e["retired"]:
+            if o == inc:
+                continue
+            if o in e["retired"]:  # retired but still live (e.g. its stop request was rejected): drop again
+                d[o] = 0
                 continue
             n, x = arms.get(o, (0, 0))
             z = z_two_prop(x, n, xi, ni)
@@ -617,11 +707,18 @@ class Brain:
         for c in pool:
             a = self._arms(wf, dim, e["start_ver"], self._segs([c]))
             nh, xh = a.get(inc, (0, 0))
+            # novelty guard on the cohort's own last 2 days: effects can be cohort-specific, so a pooled read
+            # dilutes a real cohort winner (seed sweep: blocked KYC's V2-for-46+ and hurt engagement)
+            rc = self._arms(wf, dim, e["start_ver"], self._segs([c]), day_from=self.now // 1440 - 1)
+            rn_c, rx_c = rc.get(inc, (0, 0))
             for o in d:
                 if o == inc or d[o] == 0:
                     continue
                 nc, xc = a.get(o, (0, 0))
-                if nc >= MIN_N_COH and z_two_prop(xc, nc, xh, nh) > Z_COH and xh and (xc / nc) / (xh / nh) - 1 >= MIN_LIFT:
+                rn, rx = rc.get(o, (0, 0))
+                fading = not (rn and rn_c and rx / rn > rx_c / rn_c)
+                if not fading and nc >= MIN_N_COH and z_two_prop(xc, nc, xh, nh) > Z_COH and xh \
+                        and (xc / nc) / (xh / nh) - 1 >= MIN_LIFT:
                     self._promote(s, dim, o, inc, [c], xc, nc, xh, nh, new, notes)
                     gains["engagement_rate"] = gains.get("engagement_rate", 0) + ((xc / nc) / (xh / nh) - 1) * 0.8 / 4
                     break

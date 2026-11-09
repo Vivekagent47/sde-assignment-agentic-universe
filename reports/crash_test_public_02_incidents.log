@@ -3,6 +3,7 @@
 [D0 00:00] ks_cancel bootstrap: history: prompt P1 flag rate 0.0152 over 16533 connects
 [D0 09:00] nw_renewal auto_applied: did -> v2 dims=['caller_id']
 [D0 09:00] ks_cancel auto_applied: did -> v2 dims=['caller_id']
+[D0 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days +1.4% vs history (z=0.5 with day-to-day sd 3.9%, limit -2%)
 [D0 11:00] nw_renewal approval_requested: batch apr_00001: batch: define age-band cohorts (shared by schedule, experiments and reporting); call-time weights by age band (est. pickup +2.2%, optimistic); start welcome_message test: W1 keeps 70%, each challenger 15%; start voice test: V1 keeps 55%, each challenger 15%
 [D0 11:00] nw_kyc approval_requested: batch apr_00002: batch: define age-band cohorts (shared by schedule, experiments and reporting); call-time weights by age band (est. pickup +2.4%, optimistic); spread caller-ID load {'D2': 0.1, 'D3': 0.1, 'D1': 0.8}; start welcome_message test: W1 keeps 85%, each challenger 15%; start voice test: V1 keeps 85%, each 
 [D0 11:00] ks_cancel approval_requested: batch apr_00003: batch: define age-band cohorts (shared by schedule, experiments and reporting); call-time weights by age band (est. pickup +3.1%, optimistic); start welcome_message test: W1 keeps 70%, each challenger 15%; start voice test: V1 keeps 55%, each challenger 15%
@@ -17,55 +18,51 @@
 [D0 15:30] nw_kyc approval_applied: apr_00002 -> v2 dims=['cohorts', 'welcome_message', 'voice', 'caller_id', 'schedule']
 [D0 15:30] nw_kyc experiment_started: welcome_message: arms {'W1': 0.85, 'W2': 0.15} from v2
 [D0 15:30] nw_kyc experiment_started: voice: arms {'V1': 0.85, 'V2': 0.15} from v2
+[D1 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -2.1% vs history (z=-0.8 with day-to-day sd 3.9%, limit -2%)
 [D1 11:00] nw_kyc approval_requested: batch apr_00005: batch: spread caller-ID load {'D2': 0.3333, 'D3': 0.3333, 'D1': 0.3333}
-=== KILL -9 #1 at 2027-01-05T12:00:00+05:30
 [D1 14:45] nw_kyc approval_applied: apr_00005 -> v3 dims=['caller_id']
+=== KILL -9 #1 at 2027-01-05T16:30:00+05:30
 [D2 09:00] nw_renewal auto_applied: did -> v4 dims=['caller_id']
 [D2 09:00] ks_cancel auto_applied: did -> v4 dims=['caller_id']
 [D2 09:15] ks_cancel auto_applied: did -> v5 dims=['caller_id']
-[D2 11:00] nw_renewal approval_requested: batch apr_00006: batch: drop voice=V4: 107/247 vs V1 513/945 (lift -20.2%, z=-3.1)
-[D2 12:00] nw_kyc did_degraded: D1 pickup 157/645 = 0.243 vs peers 0.400 (ratio 0.61, z=-3.9) over last 4h — rotating out
+[D2 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -3.9% vs history (z=-1.4 with day-to-day sd 3.9%, limit -2%)
+[D2 11:00] nw_renewal approval_requested: batch apr_00006: batch: drop voice=V4: 109/227 vs V1 518/913 (lift -15.4%, z=-2.4)
+[D2 12:00] nw_kyc did_degraded: D1 pickup 128/638 = 0.201 vs peers 0.395 (ratio 0.51, z=-5.2) over last 4h — rotating out
 [D2 12:00] nw_kyc approval_requested: did_incident apr_00007: did_incident: rotate out degraded caller IDs ['D1']
-[D2 12:00] ks_cancel did_degraded: D2 pickup 100/598 = 0.167 vs peers 0.270 (ratio 0.62, z=-4.7) over last 4h — rotating out
-[D2 12:00] ks_cancel auto_applied: did -> v6 dims=['caller_id']
-[D2 12:15] ks_cancel auto_applied: did -> v7 dims=['caller_id']
+[D2 12:15] ks_cancel did_degraded: D2 pickup 65/408 = 0.159 vs peers 0.263 (ratio 0.60, z=-4.1) over last 4h — rotating out
+[D2 12:15] ks_cancel auto_applied: did -> v6 dims=['caller_id']
+[D2 12:30] ks_cancel auto_applied: did -> v7 dims=['caller_id']
 [D2 14:30] nw_renewal approval_applied: apr_00006 -> v5 dims=['voice']
 [D2 14:30] nw_kyc approval_applied: apr_00007 -> v4 dims=['caller_id']
-=== KILL -9 #2 at 2027-01-06T19:45:00+05:30
-[D3 11:00] nw_renewal approval_requested: batch apr_00008: batch: promote welcome_message=W3 for ['age_18_30', 'age_31_45', 'age_46_60', 'age_60p']: 274/426
+[D3 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -1.5% vs history (z=-0.5 with day-to-day sd 3.9%, limit -2%)
+=== KILL -9 #2 at 2027-01-07T11:30:00+05:30
 [D3 11:45] ks_cancel supervisor_edit: v8 changed ['prompt_version']; not reverting — no controller changes to these dims for 48h, experiments on them stopped
 [D3 11:45] ks_cancel validation_run: P2 n=200 pass_rate=0.935 (2 credits)
 [D3 11:45] ks_cancel incident_detected: supervisor prompt P2 validation pass rate 0.935 < 0.97
 [D3 11:45] ks_cancel validation_run: P1 n=300 pass_rate=0.99 (3 credits)
-[D3 11:45] ks_cancel approval_requested: incident apr_00009: Hallucination incident: revert prompt P2 -> P1 (validated 0.99)
-[D3 12:30] nw_renewal approval_rejected: apr_00008 (nw_renewal:batch:4980) reasons=['approver declined (judgement call)']
-[D3 12:30] nw_renewal approval_requested: batch apr_00010: batch: promote welcome_message=W3 for ['age_18_30', 'age_31_45', 'age_46_60', 'age_60p']: 292/453
-[D3 14:00] ks_cancel approval_applied: apr_00009 -> v9 dims=['prompt_version']
+[D3 11:45] ks_cancel approval_requested: incident apr_00008: Hallucination incident: revert prompt P2 -> P1 (validated 0.99)
+[D3 14:00] ks_cancel approval_applied: apr_00008 -> v9 dims=['prompt_version']
 [D3 14:00] ks_cancel incident_fix_live: prompt P2 -> P1; verifying flag rate for 3h
-[D3 15:45] nw_renewal approval_rejected: apr_00010 (nw_renewal:batch:5070) reasons=['approver declined (judgement call)']
-[D3 17:00] ks_cancel incident_verified: P1: 5 flags / 283 connects since fix (baseline 0.0152)
-[D4 11:00] ks_cancel approval_requested: batch apr_00011: batch: promote welcome_message=W2 for ['age_18_30', 'age_31_45', 'age_46_60', 'age_60p']: 366/663
-[D4 12:00] ks_cancel approval_applied: apr_00011 -> v10 dims=['welcome_message']
-=== KILL -9 #3 at 2027-01-08T12:45:00+05:30
-[D5 10:00] ks_cancel decay_check: welcome_message=W2 vs holdout W1: 371/710 vs 143/312 (z=1.9) — keep
-=== KILL -9 #4 at 2027-01-09T10:30:00+05:30
-[D5 11:15] nw_renewal approval_requested: batch apr_00012: batch: hold welcome_message=W3: wins cumulatively (lift +12.2%) but not in the last 2 days (112/2; promote welcome_message=W3 for ['age_31_45']: 176/283 vs W1 620/1188 (lift +19.2%); W1 kep
-[D5 12:30] nw_renewal approval_rejected: apr_00012 (nw_renewal:batch:7875) reasons=['approver declined (judgement call)']
+[D3 15:00] nw_kyc approval_requested: batch apr_00009: batch: drop welcome_message=W2: 79/151 vs W1 510/795 (lift -18.4%, z=-2.7); welcome_message test closed: no challenger beat W1
+[D3 17:00] ks_cancel incident_verified: P1: 2 flags / 275 connects since fix (baseline 0.0152)
+[D4 10:15] nw_kyc approval_applied: apr_00009 -> v5 dims=['welcome_message']
+[D4 10:15] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days +3.3% vs history (z=1.2 with day-to-day sd 3.9%, limit -2%)
+=== KILL -9 #3 at 2027-01-08T16:15:00+05:30
+=== KILL -9 #4 at 2027-01-09T08:15:00+05:30
+[D5 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days +2.2% vs history (z=0.8 with day-to-day sd 3.9%, limit -2%)
 [D5 15:15] nw_renewal supervisor_edit: v6 changed ['voice']; not reverting — no controller changes to these dims for 48h, experiments on them stopped
-=== KILL -9 #5 at 2027-01-09T18:00:00+05:30
-[D6 10:00] ks_cancel decay_check: welcome_message=W2 vs holdout W1: 820/1569 vs 316/677 (z=2.4) — keep
-=== KILL -9 #6 at 2027-01-10T17:15:00+05:30
-=== KILL -9 #7 at 2027-01-11T09:15:00+05:30
-[D7 10:00] ks_cancel decay_check: welcome_message=W2 vs holdout W1: 897/1728 vs 366/748 (z=1.4) — keep
-[D7 11:00] nw_kyc approval_requested: batch apr_00013: batch: call-time weights by age band (est. pickup +2.0%, optimistic); drop welcome_message=W2: 277/493 vs W1 1759/2883 (lift -7.9%, z=-2.0); welcome_message test closed: no challenger beat W1
-[D7 16:45] nw_kyc approval_applied: apr_00013 -> v5 dims=['welcome_message', 'schedule']
-[D8 10:00] ks_cancel decay_check: welcome_message=W2 vs holdout W1: 887/1708 vs 356/753 (z=2.1) — keep
-[D8 11:00] ks_cancel auto_applied: schedule -> v11 dims=['schedule']
-=== KILL -9 #8 at 2027-01-12T14:15:00+05:30
-[D9 10:00] ks_cancel decay_check: welcome_message=W2 vs holdout W1: 942/1748 vs 371/763 (z=2.4) — keep
-[D9 11:00] ks_cancel approval_requested: batch apr_00014: batch: promote voice=V3 for ['age_46_60']: 201/329 vs V1 689/1332 (lift +18.1%); V1 kept as 30% h
-[D9 12:00] ks_cancel approval_applied: apr_00014 -> v12 dims=['voice']
-done at D10 00:00 in 3s; proposals: applied=18, rejected=4 @ D10 00:00; credits left 195.0
+=== KILL -9 #5 at 2027-01-09T19:15:00+05:30
+[D6 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days +1.6% vs history (z=0.6 with day-to-day sd 3.9%, limit -2%)
+=== KILL -9 #6 at 2027-01-10T20:30:00+05:30
+[D7 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -1.7% vs history (z=-0.6 with day-to-day sd 3.9%, limit -2%)
+[D7 14:00] ks_cancel approval_requested: batch apr_00010: batch: promote voice=V3 for ['age_46_60']: 175/281 vs V1 538/1033 (lift +19.6%); V1 kept as 30% h
+[D7 15:00] ks_cancel approval_applied: apr_00010 -> v10 dims=['voice']
+[D8 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -5.0% vs history (z=-1.8 with day-to-day sd 3.9%, limit -2%)
+=== KILL -9 #7 at 2027-01-12T10:15:00+05:30
+=== KILL -9 #8 at 2027-01-12T17:30:00+05:30
+[D9 10:00] nw_kyc guardrail_ok: engagement within cohorts, last 2 full days -2.1% vs history (z=-0.8 with day-to-day sd 3.9%, limit -2%)
+[D9 13:15] ks_cancel decay_check: voice=V3 vs holdout V1: 201/341 vs 78/153 (z=1.7) — keep
+done at D10 00:00 in 2s; proposals: applied=16, rejected=1 @ D10 00:00; credits left 195.0
 === finished after 8 kills
-server approvals: 14 local: 14 statuses: {'rejected': 4, 'applied': 10}
+server approvals: 10 local: 10 statuses: {'rejected': 1, 'applied': 9}
 CHECK PASS []

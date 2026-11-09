@@ -1,0 +1,562 @@
+{
+  "scenario": "public_02_incidents",
+  "finished": 14400,
+  "kpis": {
+    "ks_cancel": {
+      "dials": 48000,
+      "connected": 12030,
+      "engaged": 6104,
+      "leads_uploaded": 15000,
+      "leads_concluded": 5579,
+      "conclusion_rate": 0.37193333333333334,
+      "pickup_rate": 0.250625,
+      "engagement_rate": 0.5073981712385702,
+      "hallucinated_calls": 87,
+      "engagement_gap_captured": 0.368161037737866
+    },
+    "nw_kyc": {
+      "dials": 20000,
+      "connected": 6115,
+      "engaged": 3588,
+      "leads_uploaded": 7000,
+      "leads_concluded": 3351,
+      "conclusion_rate": 0.4787142857142857,
+      "pickup_rate": 0.30575,
+      "engagement_rate": 0.5867538838920687,
+      "hallucinated_calls": 45,
+      "engagement_gap_captured": 0.02287985038503239
+    },
+    "nw_renewal": {
+      "dials": 36000,
+      "connected": 10539,
+      "engaged": 5712,
+      "leads_uploaded": 11000,
+      "leads_concluded": 5232,
+      "conclusion_rate": 0.47563636363636363,
+      "pickup_rate": 0.29275,
+      "engagement_rate": 0.5419869057785368,
+      "hallucinated_calls": 47,
+      "engagement_gap_captured": 0.05056592042984279
+    },
+    "ALL": {
+      "dials": 104000,
+      "connected": 28684,
+      "engaged": 15404,
+      "leads_uploaded": 33000,
+      "leads_concluded": 14162,
+      "conclusion_rate": 0.4291515151515152,
+      "pickup_rate": 0.2758076923076923,
+      "engagement_rate": 0.537024124947706,
+      "hallucinated_calls": 179,
+      "engagement_gap_captured": 0.2253371161900924
+    }
+  },
+  "baseline_kpis": {
+    "ks_cancel": {
+      "dials": 48000,
+      "connected": 8696,
+      "engaged": 4067,
+      "leads_uploaded": 15000,
+      "leads_concluded": 3533,
+      "conclusion_rate": 0.23553333333333334,
+      "pickup_rate": 0.18116666666666667,
+      "engagement_rate": 0.4676862925482981,
+      "hallucinated_calls": 348,
+      "engagement_gap_captured": 0.0
+    },
+    "nw_kyc": {
+      "dials": 20000,
+      "connected": 4689,
+      "engaged": 2853,
+      "leads_uploaded": 7000,
+      "leads_concluded": 2616,
+      "conclusion_rate": 0.3737142857142857,
+      "pickup_rate": 0.23445,
+      "engagement_rate": 0.6084452975047985,
+      "hallucinated_calls": 29,
+      "engagement_gap_captured": 0.0
+    },
+    "nw_renewal": {
+      "dials": 36000,
+      "connected": 9442,
+      "engaged": 5236,
+      "leads_uploaded": 11000,
+      "leads_concluded": 4763,
+      "conclusion_rate": 0.433,
+      "pickup_rate": 0.2622777777777778,
+      "engagement_rate": 0.5545435289133658,
+      "hallucinated_calls": 54,
+      "engagement_gap_captured": 0.048667809936925294
+    },
+    "ALL": {
+      "dials": 104000,
+      "connected": 22827,
+      "engaged": 12156,
+      "leads_uploaded": 33000,
+      "leads_concluded": 10912,
+      "conclusion_rate": 0.33066666666666666,
+      "pickup_rate": 0.21949038461538461,
+      "engagement_rate": 0.5325272703377579,
+      "hallucinated_calls": 431,
+      "engagement_gap_captured": 0.02654008127478069
+    }
+  },
+  "delta_vs_baseline": {
+    "ks_cancel": {
+      "conclusion_rate": 0.5791112369091422,
+      "pickup_rate": 0.3833946642134314,
+      "engagement_rate": 0.08491135900924673
+    },
+    "nw_kyc": {
+      "conclusion_rate": 0.28096330275229353,
+      "pickup_rate": 0.3041160162081469,
+      "engagement_rate": -0.03565055675783024
+    },
+    "nw_renewal": {
+      "conclusion_rate": 0.09846735250892302,
+      "pickup_rate": 0.11618301207371329,
+      "engagement_rate": -0.02264316952617551
+    },
+    "ALL": {
+      "conclusion_rate": 0.29783724340175954,
+      "pickup_rate": 0.25658211766767436,
+      "engagement_rate": 0.008444364937585158
+    }
+  },
+  "controller_changes": {
+    "count": 22,
+    "verdicts": {
+      "neutral": 8,
+      "beneficial": 14
+    },
+    "detail": [
+      {
+        "workflow_id": "nw_renewal",
+        "version": 2,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 540,
+        "exp_engage_old": 0.54987,
+        "exp_engage_new": 0.54987,
+        "exp_did_health_old": 0.89146,
+        "exp_did_health_new": 0.90231,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0122,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 2,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 540,
+        "exp_engage_old": 0.50039,
+        "exp_engage_new": 0.50039,
+        "exp_did_health_old": 0.89147,
+        "exp_did_health_new": 0.89689,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0061,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 3,
+        "actor": "controller_approved",
+        "dims": [
+          "cohorts",
+          "welcome_message",
+          "voice",
+          "schedule"
+        ],
+        "minute": 750,
+        "exp_engage_old": 0.49845,
+        "exp_engage_new": 0.50408,
+        "exp_did_health_old": 0.88113,
+        "exp_did_health_new": 0.88113,
+        "engage_delta": 0.0113,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 3,
+        "actor": "controller_approved",
+        "dims": [
+          "cohorts",
+          "welcome_message",
+          "voice",
+          "schedule"
+        ],
+        "minute": 885,
+        "exp_engage_old": 0.54643,
+        "exp_engage_new": 0.55491,
+        "exp_did_health_old": 0.88036,
+        "exp_did_health_new": 0.88036,
+        "engage_delta": 0.0155,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_kyc",
+        "version": 2,
+        "actor": "controller_approved",
+        "dims": [
+          "cohorts",
+          "welcome_message",
+          "voice",
+          "caller_id",
+          "schedule"
+        ],
+        "minute": 930,
+        "exp_engage_old": 0.5975,
+        "exp_engage_new": 0.59438,
+        "exp_did_health_old": 0.68363,
+        "exp_did_health_new": 0.74691,
+        "engage_delta": -0.0052,
+        "did_health_delta": 0.0926,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_kyc",
+        "version": 3,
+        "actor": "controller_approved",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 2325,
+        "exp_engage_old": 0.59381,
+        "exp_engage_new": 0.59381,
+        "exp_did_health_old": 0.76069,
+        "exp_did_health_new": 0.90027,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.1835,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 4,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3420,
+        "exp_engage_old": 0.55376,
+        "exp_engage_new": 0.55376,
+        "exp_did_health_old": 0.9128,
+        "exp_did_health_new": 0.95134,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0422,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 4,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3420,
+        "exp_engage_old": 0.5066,
+        "exp_engage_new": 0.5066,
+        "exp_did_health_old": 0.90212,
+        "exp_did_health_new": 0.92262,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0227,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 5,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3435,
+        "exp_engage_old": 0.50662,
+        "exp_engage_new": 0.50662,
+        "exp_did_health_old": 0.92214,
+        "exp_did_health_new": 0.93075,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0093,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 6,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3615,
+        "exp_engage_old": 0.5059,
+        "exp_engage_new": 0.5059,
+        "exp_did_health_old": 0.7332,
+        "exp_did_health_new": 0.85972,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.1726,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 7,
+        "actor": "controller_auto",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3630,
+        "exp_engage_old": 0.50557,
+        "exp_engage_new": 0.50557,
+        "exp_did_health_old": 0.85928,
+        "exp_did_health_new": 0.94375,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0983,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_kyc",
+        "version": 4,
+        "actor": "controller_approved",
+        "dims": [
+          "caller_id"
+        ],
+        "minute": 3900,
+        "exp_engage_old": 0.59166,
+        "exp_engage_new": 0.59166,
+        "exp_did_health_old": 0.90622,
+        "exp_did_health_new": 0.99801,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.1013,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 5,
+        "actor": "controller_approved",
+        "dims": [
+          "voice"
+        ],
+        "minute": 4020,
+        "exp_engage_old": 0.54676,
+        "exp_engage_new": 0.55536,
+        "exp_did_health_old": 0.94325,
+        "exp_did_health_new": 0.94325,
+        "engage_delta": 0.0157,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 9,
+        "actor": "controller_approved",
+        "dims": [
+          "prompt_version"
+        ],
+        "minute": 5160,
+        "exp_engage_old": 0.45656,
+        "exp_engage_new": 0.50328,
+        "exp_did_health_old": 0.91828,
+        "exp_did_health_new": 0.91828,
+        "engage_delta": 0.1023,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_kyc",
+        "version": 5,
+        "actor": "controller_approved",
+        "dims": [
+          "welcome_message"
+        ],
+        "minute": 5340,
+        "exp_engage_old": 0.5877,
+        "exp_engage_new": 0.59475,
+        "exp_did_health_old": 0.98831,
+        "exp_did_health_new": 0.98831,
+        "engage_delta": 0.012,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 6,
+        "actor": "controller_approved",
+        "dims": [
+          "welcome_message"
+        ],
+        "minute": 5430,
+        "exp_engage_old": 0.54344,
+        "exp_engage_new": 0.54879,
+        "exp_did_health_old": 0.95106,
+        "exp_did_health_new": 0.95106,
+        "engage_delta": 0.0098,
+        "did_health_delta": 0.0,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 7,
+        "actor": "controller_approved",
+        "dims": [
+          "voice"
+        ],
+        "minute": 6585,
+        "exp_engage_old": 0.50953,
+        "exp_engage_new": 0.51648,
+        "exp_did_health_old": 0.96081,
+        "exp_did_health_new": 0.96081,
+        "engage_delta": 0.0136,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 8,
+        "actor": "controller_approved",
+        "dims": [
+          "welcome_message"
+        ],
+        "minute": 7950,
+        "exp_engage_old": 0.51505,
+        "exp_engage_new": 0.55368,
+        "exp_did_health_old": 0.96414,
+        "exp_did_health_new": 0.96414,
+        "engage_delta": 0.075,
+        "did_health_delta": 0.0,
+        "verdict": "beneficial"
+      },
+      {
+        "workflow_id": "nw_renewal",
+        "version": 10,
+        "actor": "controller_auto",
+        "dims": [
+          "schedule"
+        ],
+        "minute": 9645,
+        "exp_engage_old": 0.55449,
+        "exp_engage_new": 0.55449,
+        "exp_did_health_old": 0.9582,
+        "exp_did_health_new": 0.9582,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "nw_kyc",
+        "version": 6,
+        "actor": "controller_approved",
+        "dims": [
+          "schedule"
+        ],
+        "minute": 10695,
+        "exp_engage_old": 0.6025,
+        "exp_engage_new": 0.6025,
+        "exp_did_health_old": 0.9444,
+        "exp_did_health_new": 0.9444,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 10,
+        "actor": "controller_auto",
+        "dims": [
+          "schedule"
+        ],
+        "minute": 12195,
+        "exp_engage_old": 0.50955,
+        "exp_engage_new": 0.50955,
+        "exp_did_health_old": 0.88476,
+        "exp_did_health_new": 0.88476,
+        "engage_delta": 0.0,
+        "did_health_delta": 0.0,
+        "verdict": "neutral"
+      },
+      {
+        "workflow_id": "ks_cancel",
+        "version": 11,
+        "actor": "controller_approved",
+        "dims": [
+          "welcome_message"
+        ],
+        "minute": 12585,
+        "exp_engage_old": 0.50733,
+        "exp_engage_new": 0.51073,
+        "exp_did_health_old": 0.85232,
+        "exp_did_health_new": 0.85232,
+        "engage_delta": 0.0067,
+        "did_health_delta": 0.0,
+        "verdict": "neutral"
+      }
+    ]
+  },
+  "governance": {
+    "approval_requests": 15,
+    "decisions": {
+      "rejected": 2,
+      "approved": 13,
+      "expired": 0
+    },
+    "rejection_reasons": {
+      "approver declined (judgement call)": 2
+    },
+    "applied_via_approval": 13,
+    "auto_applied": 9,
+    "auto_apply_rejected": 0,
+    "apply_conflicts": 0,
+    "lapsed": 0,
+    "peak_requests_per_24h": {
+      "nw_renewal": 2,
+      "nw_kyc": 1,
+      "ks_cancel": 1
+    }
+  },
+  "incidents": [
+    {
+      "type": "did_flagged",
+      "workflow": "ks_cancel",
+      "at": "D2 10:00",
+      "flagged_did_share_by_day": {
+        "2": 0.093,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 0.0,
+        "6": 0.0,
+        "7": 0.0,
+        "8": 0.0,
+        "9": 0.0
+      }
+    },
+    {
+      "type": "supervisor_edit",
+      "workflow": "ks_cancel",
+      "at": "D3 11:30",
+      "mttr_minutes": 150,
+      "fixed_by": "controller_approved"
+    },
+    {
+      "type": "supervisor_edit",
+      "workflow": "nw_renewal",
+      "at": "D5 15:00"
+    }
+  ],
+  "decaying_variant_share_after_onset": {
+    "nw_renewal:welcome_message=W3": {
+      "2": 0.137,
+      "3": 0.27,
+      "4": 0.718,
+      "5": 0.198,
+      "6": 0.0,
+      "7": 0.0,
+      "8": 0.0,
+      "9": 0.0
+    }
+  },
+  "credits_used": 5.0,
+  "validation_runs": 2,
+  "llm_calls": 0
+}
