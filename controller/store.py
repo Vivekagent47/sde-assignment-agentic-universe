@@ -88,14 +88,14 @@ class Store:
         return self.db.execute(sql, args).fetchall()
 
     # ---------------------------------------------------------------- ingest
-    def ingest(self, chunk: int, text: str) -> int:
+    def ingest(self, chunk: int, lines) -> int:
         pk = defaultdict(lambda: [0, 0])
         en = defaultdict(lambda: [0, 0, 0])
         leads = defaultdict(int)
         cfg, touched = [], set()
         loads = json.loads
         n = 0
-        for line in text.splitlines():
+        for line in lines:
             if not line:
                 continue
             n += 1

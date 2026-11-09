@@ -68,7 +68,7 @@ def auto_ok(policy: dict, old: dict, new: dict) -> tuple[bool, list[str]]:
         probs.append("auto-apply disabled")
     if [d for d in dims if d not in p.get("allowed_dims", [])]:
         probs.append(f"dims not allowed: {dims}")
-    if max_shift(old, new) > p.get("max_shift", 0) - 1e-6:
+    if max_shift(old, new) > p.get("max_shift", 0) + 1e-9:
         probs.append("shift too large")
     if not dims:
         probs.append("no change")

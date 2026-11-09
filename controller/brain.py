@@ -568,6 +568,19 @@ class Brain:
                 winners.append((lift, o, z, n, x))
         dry[f"{dim}_readout"] = {"since_version": e["start_ver"], "incumbent": {"arm": inc, "n": ni, "eng": xi},
                                  "challengers": read, "cohorts_pooled": pool}
+        # Novelty guard: cumulative evidence can be carried by early days of a fading effect.
+        # A winner must also be ahead in the last ~2 days.
+        recent = self._arms(wf, dim, e["start_ver"], self._segs(pool), day_from=self.now // 1440 - 1)
+        rn_i, rx_i = recent.get(inc, (0, 0))
+        fresh = []
+        for w_ in winners:
+            rn, rx = recent.get(w_[1], (0, 0))
+            if rn and rn_i and rx / rn > rx_i / rn_i:
+                fresh.append(w_)
+            else:
+                notes.append(f"hold {dim}={w_[1]}: wins cumulatively (lift {w_[0]:+.1%}) but not in the last 2 days "
+                             f"({rx}/{rn} vs {rx_i}/{rn_i}) — possible novelty effect")
+        winners = fresh
         if winners:
             lift, o, z, n, x = max(winners)
             cids, veto = [], []

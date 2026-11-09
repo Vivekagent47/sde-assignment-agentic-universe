@@ -23,7 +23,7 @@ def ingest_new(sim: Sim, st: Store) -> int:
     chunks = sim.get("/events/chunks", kind="history", after=cur) + sim.get("/events/chunks", kind="events", after=cur)
     n = 0
     for ch in sorted(chunks, key=lambda c: c["chunk"]):
-        n += st.ingest(ch["chunk"], sim.text(f"/events/chunks/{ch['chunk']}"))
+        n += st.ingest(ch["chunk"], sim.lines(f"/events/chunks/{ch['chunk']}"))
     return n
 
 

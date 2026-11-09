@@ -45,8 +45,12 @@ class Sim:
     def get(self, path: str, **params):
         return self._req("GET", path, params=params or None).json()
 
-    def text(self, path: str) -> str:
-        return self._req("GET", path).text
+    def lines(self, path: str):
+        """Stream an NDJSON chunk line by line (a load chunk is ~100 MB; never hold it whole)."""
+        with self.c.stream("GET", path) as r:
+            if r.status_code >= 400:
+                raise SimError(r.status_code, r.read().decode())
+            yield from r.iter_lines()
 
     # POST/PUT with an idempotency key (proposal_id) are safe to retry: a replay returns 409 duplicate.
     def post(self, path: str, body: dict, retry: bool = True):
