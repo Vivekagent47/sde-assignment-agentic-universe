@@ -252,7 +252,7 @@ D3 17:00  incident_verified    P1: 1 flags / 296 connects since fix (baseline 0.
 - **Where we helped:** most of the lift is pickup, from caller-ID load spreading (the default config piles all KYC traffic on one number) and flagged-DID rotation. Call time adds a little. Engagement lift is modest: arms are small by design, so promotions arrive on D2–D4.
 - **Where we were harmful:**
   - (1) public_02 ks_cancel W2. Promoted D3 on +6.5% lift, then rolled back D5 when the last 2 days showed it 8.6pp *below* the holdout (z = −2.5). W2 is truly mildly positive, so this was a false rollback: the promotion lift was inflated by winner's curse, and hourly looks multiply the chances of a bad stretch.
-  - (2) Earlier iterations had harmful caller-ID probes and an exploration restart after a supervisor edit. Both fixed (commits `bd08124`, `a41fac2`→).
+  - (2) Earlier iterations had harmful caller-ID probes and an exploration restart after a supervisor edit. Both fixed in commit `dd782c3`.
 - **nw_renewal engagement −1.9% (its primary KPI).** W3 was promoted D2 on a real +14% novelty lift, then decayed to 0.9× from ~D4 and wasn't rolled back until D6: two days of decayed exposure. Faster decay detection (bigger holdout, daily sequential test) is the fix. nw_kyc engagement −1.3% is within its guardrail (primary = pickup, +30%). Hallucinated *calls* on KYC are up only because more calls connect; the per-call rate is unchanged.
 - **Engagement gap captured is low (16–24% on dev scenarios, 32% on load).** Exploration arms are capped at 15% and cohort-specific effects need many days. I chose this deliberately (harm > speed), but it's the main headroom left.
 
