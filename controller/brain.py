@@ -91,13 +91,15 @@ class Brain:
             if actor != "supervisor":
                 continue
             dims = eval_list(dims)
-            self.st.decide(wf, "supervisor_edit", f"v{v} changed {dims}; not reverting — frozen for 48h",
+            self.st.decide(wf, "supervisor_edit", f"v{v} changed {dims}; not reverting — no controller changes to these dims for 48h, "
+                           f"experiments on them stopped",
                            {"version": v, "dims": dims})
             for d in dims:
                 if d in ("welcome_message", "voice", "caller_id", "schedule", "cohorts"):
                     s["frozen"][d] = self.now + FREEZE_MIN
                 if d in ("welcome_message", "voice"):
-                    s["exp"][d] = {"status": "new"}  # experiment contaminated: restart after the freeze
+                    # The supervisor now owns this dimension: stop testing it rather than pull traffic off their pick.
+                    s["exp"][d] = {"status": "supervisor_owned", "at": self.now}
                     for r in s["records"]:
                         if r["dim"] == d and r["status"] in ("active", "planned"):
                             r["status"] = "ended_by_supervisor"
