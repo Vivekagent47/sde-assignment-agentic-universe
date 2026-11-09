@@ -7,6 +7,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt      # Python
 ./run.sh http://127.0.0.1:8700            # runs to scenario end; state in state/<scenario>.db
 scripts/run_and_grade.sh public_02_incidents 8702   # fresh sim + controller + reports/<name>.md (needs runs/base_<name>)
 scripts/crash_test.sh public_02_incidents 8710      # random kill -9 loop + consistency check
+scripts/seed_sweep.sh public_02_incidents . mytag 8721 202 11 12   # same scenario, other seeds: robustness check
 .venv/bin/python -m pytest -q tests
 ```
 Restarting `./run.sh` against the same simulator resumes. If the simulator itself was restarted (new world),

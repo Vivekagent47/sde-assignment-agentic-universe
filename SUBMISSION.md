@@ -6,10 +6,10 @@
 
 ## 0. TL;DR
 - `./run.sh <SIM_URL>` runs a controller that ingests every event chunk into SQLite counters, then for each workflow detects caller-ID degradation and hallucination incidents, runs factorial welcome × voice tests per age-band cohort, sets call-time weights from history, and pushes every change through governance (auto-apply only for operational dims the policy allows).
-- **public_01:** conclusion rate **+14.5%** vs baseline (pickup +9.5%, engagement +2.7%), 15 changes applied (10 beneficial, 5 neutral), **0 harmful**.
-- **public_02:** conclusion rate **+29.6%**, hallucinated calls **187 vs 431**, supervisor's bad prompt fixed in **150 min** (validated revert, approved by the client), flagged caller ID moved from 50% of dials to 6.5% on the incident day and 0% after. 21 changes, 1 harmful (a false decay rollback, §11).
-- **public_03 load:** conclusion **+22.1%** across 12 workflows, 58 changes, **0 harmful**; ~14 s wall per simulated day (budget: 10 min), 218k events/s ingest, 52 MB peak RSS (§8).
-- Survives `kill -9` at random points: 10 kills in one public_02 run, finished correctly (+31.7%, 0 harmful), no double-apply, no lost approval (`reports/crash_test_public_02_incidents.log`).
+- **public_01:** conclusion rate **+12.9%** vs baseline (pickup +8.8%, engagement +2.7%), 14 changes applied (9 beneficial, 5 neutral), **0 harmful**. Mean over a 4-seed sweep: +14.7%, 0 harmful (§5).
+- **public_02:** conclusion rate **+28.2%**, hallucinated calls **192 vs 431**, supervisor's bad prompt fixed in **150 min** (validated revert, approved by the client), flagged caller ID rotated out the same day. 20 changes, **0 harmful**. Mean over a 5-seed sweep: +29.0%, 0 harmful.
+- **public_03 load:** conclusion **+21.6%** across 12 workflows, 62 changes, **0 harmful**; ~13 s wall per simulated day (budget: 10 min), 222k events/s ingest, 51 MB peak RSS (§8).
+- Survives `kill -9` at random points: 8 kills in one public_02 run, finished correctly (+30.4%, 0 harmful), no double-apply, no lost approval (`reports/crash_test_public_02_incidents.log`).
 - How to run, debug and extend: [docs/CONTROLLER.md](docs/CONTROLLER.md).
 - **Not built:** per-person call time, prompt experimentation, a UI, cross-tenant credit fairness, guardrail auto-rollback (detection only).
 
@@ -33,7 +33,7 @@
 | C4 | Call-time optimisation | **Partial** (per cohort) | Big pickup lever, safe (no engagement risk). Per person cut: most people have ≤ 8 attempts and few pickups, so it's noise | Per-person only for returning people with a past pickup hour |
 | C5 | Caller-ID health | **Built** | Biggest pickup lever: even load spread + flag detection + small probes of unknown DIDs | Re-probe flagged DIDs on a slow schedule |
 | C6 | Welcome × voice experiments | **Built** | Independent per-dial randomisation = free factorial. Fast drop, slow promote, cohort veto | Thompson sampling once harm accounting allows bigger arms |
-| C7 | Promotion, decay, rollback | **Built** | 20% holdout after promotion; rollback on lift decline; novelty guard before promotion | Sequential test with winner's-curse correction (§13) |
+| C7 | Promotion, decay, rollback | **Built** | 30% holdout after promotion; daily champion-vs-holdout check with persistence; novelty guard before promotion; rule chosen by seed sweep | Sequential test with winner's-curse correction (§13) |
 | C8 | Hallucination response | **Built** | Validate supervisor prompt immediately; flag-rate Poisson test; revert to known-good via approval; verify | — |
 | C9 | Governance client | **Built** | State machine, local pre-validation, timing vs TTL, reserve slots, stale re-propose, crash reconcile | Smarter batching across days |
 | C10 | Impact / affected / dry run | **Partial** | Honest but simple (§6) | Off-policy replay with confidence intervals |
@@ -62,7 +62,7 @@
 ### 03 — Platform/SRE (Kabir)
 - **Accepted:** kill/restart test (§9), idempotency via deterministic proposal IDs + reconcile on start, no new infrastructure (SQLite here, Postgres in production), loop health without logs (`report loop`, `metrics` table).
 - **Pushed back:** nothing. Measured **~15 s wall per simulated load day** against your 10-minute budget.
-- **Reply:** "Kabir — kill/restart is tested: `scripts/crash_test.sh` kills the controller at random points (10 kills in one run) and checks nothing was applied twice or lost. Every write to the client uses a deterministic proposal ID, written before the call and reconciled on startup. No new stateful infra: one SQLite file locally, Postgres in prod, no Redis. On public_03 a full simulated day takes ~15 s wall including the simulator; ingest ~180k events/s. At 10× the first thing to go is the single process; plan in §8. Paging list in §10: only incident-unfixed, ingest stalled, and credits low page."
+- **Reply:** "Kabir — kill/restart is tested: `scripts/crash_test.sh` kills the controller at random points (8–10 kills per run) and checks nothing was applied twice or lost. Every write to the client uses a deterministic proposal ID, written before the call and reconciled on startup. No new stateful infra: one SQLite file locally, Postgres in prod, no Redis. On public_03 a full simulated day takes ~15 s wall including the simulator; ingest ~180k events/s. At 10× the first thing to go is the single process; plan in §8. Paging list in §10: only incident-unfixed, ingest stalled, and credits low page."
 
 ### 04 — Client Ops Supervisor (Anita, Kestrel)
 - **Accepted:** we never silently undo her edits: dimensions she touches are hands-off for 48h and experiments on them stop. Max 2 routine requests/day, none before 11:00. One request bundles all changes. One screen (`report view`).
@@ -117,9 +117,19 @@ flowchart LR
   - Multiple comparisons: z 2.8 ≈ one-sided α 0.0025, roughly Bonferroni over ~5 challengers × daily looks.
   - Expected false-winner rate: < 1 per scenario at these settings. I haven't measured it with A/A splits on history yet (§13).
 - **Decay and rollback:**
-  - The previous incumbent stays as a 20% holdout.
-  - Every hour, champion vs holdout over the last 2 days. Roll back if z < −2, or if the lift has fallen below 0 and is significantly below the lift at promotion (z < −3).
-  - public_02: W3 promoted D2 with +14% lift, decay detected and rolled back by D6 (D4 in an earlier run). The grader's decaying-variant share falls to 0 after rollback.
+  - The previous incumbent stays as a **30% holdout**. That's big enough that a 10% decay shows within ~2–3 days on a ~1,000-connect/day workflow.
+  - **Once a day**, champion vs holdout over the last 3 days. Roll back if **z < −1.65** *and* yesterday alone also shows the champion below the holdout (persistence, so one bad stretch doesn't trigger it).
+  - Why one-sided 5% and not stricter: rolling back a champion that's truly *equal* to its holdout is harmless (scored neutral). Harm needs a truly better champion, whose z sits well above 0. A loose bar costs little and catches decay sooner.
+  - Why no "lift fell vs. lift at promotion" test: that baseline is inflated by winner's curse (we promoted *because* it looked good). In the first version it caused a false rollback of a truly positive variant (ks_cancel W2). A version with a shrunk baseline (promotion lift − 1.5 SE) was tested and lost (below).
+  - **How the rule was chosen: seed sweep** (`scripts/seed_sweep.sh`). The same public scenarios under 9 different simulator seeds (same truth, different randomness), three candidate rules, scored by the grader:
+
+    | Rule | public_01 (4 seeds) mean conclusion / harmful | public_02 (5 seeds) mean conclusion / harmful | false rollbacks |
+    |---|---|---|---|
+    | v1: hourly, z<−2 or decline vs promotion lift | +13.9% / 0 | +28.4% / 0 | 1 of 7 rollbacks (V3) on public_02 |
+    | **v2: daily, holdout-only, z<−1.65, 3 days, persistence (kept)** | **+14.7% / 0** | **+29.0% / 0** | **0 of 8** |
+    | v3: v2 + shrunk-baseline decline test | +12.8% / 0 | +28.0% / 1 | — |
+
+  - Cost of v2: mild decay is caught late. public_01's W3 fades only to 0.93× and v2 often keeps it to the end. public_02's W3 (0.90×) is rolled back D5–D7.
 - **Call time:** first-attempt pickup by age × hour from history + live data, shrunk to the cohort mean (50 pseudo-dials). Weight = (rate / cohort mean)², clamped to [0.1, 5]. Every window hour keeps a non-zero weight, so capacity is never idle. Refreshed by auto-apply where schedule is allowed.
 - **Caller ID:**
   - Target = even split over healthy DIDs. Dial load degrades a number, so spreading load is the biggest pickup lever (KYC +24% pickup in public_01).
@@ -163,7 +173,7 @@ flowchart LR
 | D3 17:00 | Verified: 1 flag in 296 connects |
 
   MTTR 150 min, of which ~135 min was approver latency. **Credits:** 5 of 200.
-- **Caller ID:** D2 flagged on D2 at 10:00; detected on the 4h window and rotated out in `max_shift` steps by auto-apply. Grader: flagged-DID share 0.065 on the incident day, 0 after.
+- **Caller ID:** D2 flagged on D2 at 10:00; detected on the 4h window and rotated out in `max_shift` steps by auto-apply. Grader: flagged-DID share 0.084 on the incident day, 0 after.
 
 ## 8. Scale (public_03_load, 12 workflows, ~800k events/day)
 See `reports/public_03_load_loop.txt` and `reports/public_03_load.md`.
@@ -171,12 +181,12 @@ See `reports/public_03_load_loop.txt` and `reports/public_03_load.md`.
 | Metric | Value |
 |---|---|
 | Whole scenario, wall clock (incl. 38 s simulator history generation) | **136 s** |
-| Wall time per simulated day (sim + controller, MacBook) | **~13–15 s** |
-| Ingest | **~218k events/s** (9.7M events incl. 7 days history in 45 s) |
+| Wall time per simulated day (sim + controller, MacBook) | **~12–15 s** |
+| Ingest | **~222k events/s** (9.7M events incl. 7 days history in 44 s) |
 | Decide time per tick (12 workflows) | mean 0.05 s, max 0.13 s |
 | Decision lag | ≤ 1 tick (15 sim-min): every tick ingests all new chunks before deciding |
-| Peak RSS (controller) | **52 MB** (was 1.5 GB before streaming chunk lines instead of loading 250k-line chunks whole) |
-| Outcome | conclusion **+22.1%**, pickup +13.0%, engagement +5.3%, 58 changes: 36 beneficial, 22 neutral, **0 harmful** |
+| Peak RSS (controller) | **51 MB** (was 1.5 GB before streaming chunk lines instead of loading 250k-line chunks whole) |
+| Outcome | conclusion **+21.6%**, pickup +13.3%, engagement +4.6%, 62 changes: 39 beneficial, 23 neutral, **0 harmful** |
 
 **What breaks first at 10× (≈ 8M events/day, ~1,000 workflows):**
 1. **Single-process ingest.** ~45 s/day at the same rate is still fine for the simulator, but production is continuous. Partition by `workflow_id` hash across workers, each with its own cursor, writing to Postgres tables partitioned by workflow and day.
@@ -187,7 +197,7 @@ See `reports/public_03_load_loop.txt` and `reports/public_03_load.md`.
 
 ## 9. Reliability
 - **Method:** `scripts/crash_test.sh public_02_incidents` restarts the controller in a loop and `kill -9`s it after 0.5–3 s, until a run finishes. Then it compares every server approval against our proposals table and checks `config/history` for duplicate proposal IDs.
-- **Result:** 10 kills, run finished, `CHECK PASS` (12 server approvals = 12 local, 0 double-applied). Graded (`reports/crash_public_02_incidents.md`): conclusion +31.7%, 0 harmful, MTTR 150 min, identical to the uncrashed run. Log: `reports/crash_test_public_02_incidents.log`.
+- **Result:** 8 kills, run finished, `CHECK PASS` (14 server approvals = 14 local, 0 double-applied). Graded (`reports/crash_public_02_incidents.md`): conclusion +30.4%, 0 harmful, MTTR 150 min, same as the uncrashed run. Log: `reports/crash_test_public_02_incidents.log`.
 - **State lost:** none that matters. A kill mid-chunk rolls back that chunk's transaction and it's re-ingested. A kill between POST and DB update is reconciled on start by proposal ID.
   - Validation runs have no idempotency key, so a kill right after one can re-spend 2–3 credits.
 - **Idempotency keys:** `proposal_id = {workflow}:{kind}:{sim_minute}` for both approvals and auto-applies. A replay gets `409 duplicate_proposal_id`, which we resolve by lookup.
@@ -230,30 +240,30 @@ D3 17:00  incident_verified    P1: 1 flags / 296 connects since fix (baseline 0.
 
 | workflow | conclusion Δ | pickup Δ | engagement Δ | gap captured |
 |---|---|---|---|---|
-| ks_cancel | +11.2% | +5.9% | +3.6% | 24% |
-| nw_kyc | +27.7% | +23.8% | +0.7% | 15% |
-| nw_renewal | +10.7% | +6.5% | +2.0% | 7% |
-| **ALL** | **+14.5%** | **+9.5%** | **+2.7%** | 16% |
+| ks_cancel | +14.3% | +6.2% | +5.9% | 33% |
+| nw_kyc | +25.7% | +23.4% | −0.1% | 10% |
+| nw_renewal | +4.1% | +4.5% | −0.3% | −1% |
+| **ALL** | **+12.9%** | **+8.8%** | **+2.7%** | 15% |
 
-15 changes applied: 10 beneficial, 5 neutral, **0 harmful**. 0 credits used (no incidents).
+14 changes applied: 9 beneficial, 5 neutral, **0 harmful**. 0 credits used (no incidents). Seed sweep mean: +14.7%.
 
 **public_02** (`reports/public_02_incidents.md`)
 
 | | conclusion Δ | pickup Δ | engagement Δ | hallucinated calls |
 |---|---|---|---|---|
-| ks_cancel | +56.9% | +39.0% | +7.4% | 85 vs 348 |
-| nw_kyc | +30.6% | +30.4% | −1.3% | 37 vs 29 |
-| nw_renewal | +8.8% | +9.9% | **−1.9%** | 65 vs 54 |
-| **ALL** | **+29.6%** | **+25.2%** | **+1.1%** | 187 vs 431 |
+| ks_cancel | +60.4% | +39.7% | +9.0% | 97 vs 348 |
+| nw_kyc | +17.5% | +21.5% | **−4.7%** | 33 vs 29 |
+| nw_renewal | +10.3% | +11.1% | −1.8% | 62 vs 54 |
+| **ALL** | **+28.2%** | **+24.1%** | **+0.8%** | 192 vs 431 |
 
-21 applied: 17 beneficial, 3 neutral, 1 harmful. MTTR 150 min. Credits used: 5.
+20 applied: 15 beneficial, 5 neutral, **0 harmful**. MTTR 150 min. Credits used: 5. Seed sweep mean: +29.0%, 0 harmful.
 
 **Interpretation:**
 - **Where we helped:** most of the lift is pickup, from caller-ID load spreading (the default config piles all KYC traffic on one number) and flagged-DID rotation. Call time adds a little. Engagement lift is modest: arms are small by design, so promotions arrive on D2–D4.
 - **Where we were harmful:**
-  - (1) public_02 ks_cancel W2. Promoted D3 on +6.5% lift, then rolled back D5 when the last 2 days showed it 8.6pp *below* the holdout (z = −2.5). W2 is truly mildly positive, so this was a false rollback: the promotion lift was inflated by winner's curse, and hourly looks multiply the chances of a bad stretch.
+  - (1) First version, public_02 ks_cancel W2: promoted D3 on +6.5% lift, then rolled back D5 by a false decay alarm. The promotion lift was inflated by winner's curse, and hourly looks multiply the chances of a bad stretch. Fixed by the daily holdout-only rule above; 0 false rollbacks across the 9-seed sweep.
   - (2) Earlier iterations had harmful caller-ID probes and an exploration restart after a supervisor edit. Both fixed in commit `dd782c3`.
-- **nw_renewal engagement −1.9% (its primary KPI).** W3 was promoted D2 on a real +14% novelty lift, then decayed to 0.9× from ~D4 and wasn't rolled back until D6: two days of decayed exposure. Faster decay detection (bigger holdout, daily sequential test) is the fix. nw_kyc engagement −1.3% is within its guardrail (primary = pickup, +30%). Hallucinated *calls* on KYC are up only because more calls connect; the per-call rate is unchanged.
+- **nw_kyc engagement −4.7% breaks its 2% guardrail in this run.** On KYC (primary = pickup, +21.5%) welcome W2 is truly 0.92×. It sat at 15% until D9: KYC changes only reach new campaigns and approvals are capped at 2/day, so the drop rule got enough evidence late. A cohort-only V2 promotion for 18–30 (z > 3 on 153 connects) was also a false winner. Across the 5-seed sweep the KYC engagement change averages −1.1% (range −2.7% to +0.6%), so this seed is the bad tail. But nothing *acts* on a guardrail breach today (§13 #5): that's the next fix, ahead of anything else. nw_renewal engagement −1.8% (primary): W3 decays mildly; see §5 on late mild-decay detection.
 - **Engagement gap captured is low (16–24% on dev scenarios, 32% on load).** Exploration arms are capped at 15% and cohort-specific effects need many days. I chose this deliberately (harm > speed), but it's the main headroom left.
 
 ## 12. Trade-offs & rejected alternatives
@@ -266,10 +276,11 @@ D3 17:00  incident_verified    P1: 1 flags / 296 connects since fix (baseline 0.
 | Postgres/Redis locally | Production parity | SQLite = zero ops for the grader's box; same schema ports to Postgres |
 | LLM first on incidents | "Detect → LLM suggest" flow | A known-good prompt is cheaper (0 LLM credits) and has real engagement history; LLM kept as fallback |
 | Auto-apply welcome/voice on Kestrel | Policy allows it | Supervisor asked to be told first; approval gives a named human in the audit trail |
+| Decay rollback vs. promotion lift (also with shrunk baseline) | Catches mild decay fast | Winner's curse → false rollbacks; shrunk version lost the seed sweep (§5). Holdout-only daily test instead |
 | Per-person preferred hour | Product's headline | Too few observations per person; the 0.25× off-hour penalty can starve leads |
 
 ## 13. Known weaknesses
-1. **False rollback risk.** Rollback compares against a winner's-curse-inflated promotion lift, with hourly looks. Fix: shrink the promotion estimate, evaluate once a day, use an always-valid sequential test (mSPRT).
+1. **Mild decay is caught late.** The daily holdout test needs the champion to fall clearly *below* its holdout. A winner that fades to slightly below (public_01 W3, 0.93×) can stay live for days. Next step: an always-valid sequential test (mSPRT) on the champion-minus-holdout stream since promotion, which lets us look more often without inflating false rollbacks.
 2. **No A/A measurement** of the false-winner rate. It should come from shuffling arm labels in history and running the decision rule.
 3. **Exploration arms aren't decay-checked.** A challenger that decays while still at 15% (W3 in public_01 stays at ~15% all run) is only caught if it trips the drop rule.
 4. **Flagged DIDs are permanent.** An overloaded but healthy DID can be mis-flagged when peers are much fresher. The peer-share rule reduces this but doesn't remove it.

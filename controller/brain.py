@@ -27,7 +27,10 @@ EXPLORE_ALT = 0.15        # max share per challenger arm; incumbent keeps >= 55%
 MIN_N_DROP, Z_DROP = 150, -2.0      # fast to stop harm
 MIN_N_WIN, Z_WIN, MIN_LIFT = 300, 2.8, 0.03   # slow to promote (z 2.8 ~ Bonferroni over arms x daily looks)
 MIN_N_COH, Z_COH = 150, 3.0         # cohort-only winner needs stronger evidence (4 cohorts x arms)
-HOLDOUT = 0.2
+HOLDOUT = 0.3             # previous incumbent kept after promotion; sized so a 10% decay shows within ~2 days
+Z_DECAY = -1.65   # one-sided 5%: rolling back a champion that is truly *equal* to its holdout is harmless;
+                  # harm needs a truly better champion, whose z sits well above 0, so a looser bar is cheap
+DECAY_DAYS = 3
 DID_PROBE = {True: 0.05, False: 0.10}  # unknown caller IDs: auto-capable workflows probe smaller, more often
 DID_BAD_RATIO, DID_BAD_Z = 0.65, -3.0
 FREEZE_MIN = 48 * 60
@@ -361,42 +364,55 @@ class Brain:
         ages = [CID.index(c) for c in cids]
         return [a * 3 + t for a in ages for t in range(3)]
 
-    def _arms(self, wf, dim, since_ver, segs, day_from=None):
+    def _arms(self, wf, dim, since_ver, segs, day_from=None, day_to=None):
         col = "wm" if dim == "welcome_message" else "voice"
         if not segs:
             return {}
         sql = (f"SELECT {col}, SUM(conn), SUM(eng) FROM en WHERE wf=? AND ver>=? AND seg IN ({','.join(map(str, segs))})"
-               + (" AND day>=?" if day_from is not None else "") + f" GROUP BY {col}")
-        args = (wf, since_ver) + ((day_from,) if day_from is not None else ())
+               + (" AND day>=?" if day_from is not None else "") + (" AND day<=?" if day_to is not None else "")
+               + f" GROUP BY {col}")
+        args = (wf, since_ver) + ((day_from,) if day_from is not None else ()) + ((day_to,) if day_to is not None else ())
         return {o: (n, e) for o, n, e in self.st.q(sql, *args)}
 
     def _decay(self, wf, s, cfg, ver) -> bool:
-        if (self.now % 60) or not self.gov.can_request(wf, reserve=True) or self.gov.busy(wf):
+        """Once a day: roll back a champion that is now *below* its holdout.
+
+        Only champion-vs-holdout counts, never "lift fell vs. the lift at promotion": that baseline is inflated
+        by winner's curse (we promoted because it looked good) and caused false rollbacks. A shrunk-baseline
+        decline test was tried and lost on the seed sweep (scripts/seed_sweep.sh).
+        Rule: last DECAY_DAYS z < Z_DECAY AND yesterday alone also below holdout (persistence). One look per day."""
+        today = self.now // 1440
+        if self.gov.busy(wf) or not self.gov.can_request(wf, reserve=True):
             return False
         for r in s["records"]:
-            if r["status"] != "active" or self._frozen(s, r["dim"]):
+            if r["status"] != "active" or self._frozen(s, r["dim"]) or r.get("checked_day") == today:
                 continue
-            a = self._arms(wf, r["dim"], r["start_ver"], self._segs(r["cids"]), day_from=self.now // 1440 - 1)
+            segs = self._segs(r["cids"])
+            a = self._arms(wf, r["dim"], r["start_ver"], segs, day_from=today - DECAY_DAYS + 1)
+            y = self._arms(wf, r["dim"], r["start_ver"], segs, day_from=today - 1, day_to=today - 1)
             (nc, ec), (nh, eh) = a.get(r["champ"], (0, 0)), a.get(r["hold"], (0, 0))
-            if nh < 100 or nc < 100:
-                continue
+            (ync, yec), (ynh, yeh) = y.get(r["champ"], (0, 0)), y.get(r["hold"], (0, 0))
+            if nh < 150 or nc < 150 or not ync or not ynh:
+                continue  # not enough data yet: look again next tick, same day
+            r["checked_day"] = today
             z = z_two_prop(ec, nc, eh, nh)
             d_now = ec / nc - eh / nh
-            se_now = math.sqrt(max(ec / nc * (1 - ec / nc), 1e-6) / nc + max(eh / nh * (1 - eh / nh), 1e-6) / nh)
-            z_change = (d_now - r["d"]) / math.sqrt(se_now ** 2 + r["se"] ** 2)
-            if z < -2.0 or (d_now < 0 and z_change < -3.0):
+            if z < Z_DECAY and yec / ync < yeh / ynh:
                 new = copy.deepcopy(cfg)
                 for c in r["cids"]:
                     new["allocations"].setdefault(c, {})[r["dim"]] = {r["hold"]: 1}
-                note = (f"{r['dim']}={r['champ']} stopped winning in {r['cids']}: last 2 days "
-                        f"{ec}/{nc} vs holdout {r['hold']} {eh}/{nh} (z={z:.1f}; lift at promotion {r['d']:+.3f}, "
-                        f"now {d_now:+.3f}, change z={z_change:.1f}) — roll back to {r['hold']}")
+                note = (f"{r['dim']}={r['champ']} now below holdout in {r['cids']}: last {DECAY_DAYS} days "
+                        f"{ec}/{nc} vs {r['hold']} {eh}/{nh} (z={z:.1f}), yesterday {yec}/{ync} vs {yeh}/{ynh}; "
+                        f"lift at promotion was {r['d']:+.3f} — roll back to {r['hold']}")
                 self.st.decide(wf, "decay_detected", note, {"record": r, "now": [ec, nc, eh, nh]})
                 pid = self._request(wf, "rollback", cfg, ver, new, [note], reserve=True,
                                     impact=min(1.0, abs(d_now) / max(eh / nh, 1e-6) / 0.1))
                 if pid:
                     r.update(status="rolling_back", pid_rb=pid)
                     return True
+            else:
+                self.st.decide(wf, "decay_check", f"{r['dim']}={r['champ']} vs holdout {r['hold']}: "
+                               f"{ec}/{nc} vs {eh}/{nh} (z={z:.1f}) — keep", {"cids": r["cids"]})
         return False
 
     # ---------------------------------------------------------------- 5. daily batch
