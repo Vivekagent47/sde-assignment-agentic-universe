@@ -1,6 +1,6 @@
 # Outcome-First Agent Loop — Submission
 
-**Name:** Vivek Chauhan · **Date:** 2026-11-09 · **Hours actually spent (be honest):** _[fill in]_ — built in a single-day sprint with an AI pair · **Language / storage:** Python 3.10+ (stdlib + httpx, numpy already in requirements) / SQLite (WAL), one file per scenario under `state/`
+**Name:** Vivek Chauhan · **Date:** 2026-11-09 · **Hours actually spent (be honest):** 10 — single-day sprint with an AI pair · **Language / storage:** Python 3.10+ (stdlib + httpx, numpy already in requirements) / SQLite (WAL), one file per scenario under `state/`
 
 ---
 
